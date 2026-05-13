@@ -1,16 +1,18 @@
+name: svap-query-service
+
 services:
   postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ledger_aggregator
+      POSTGRES_DB: svap_query_service
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ledger_aggregator"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d svap_query_service"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -26,7 +28,7 @@ services:
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
-      - DB_NAME=ledger_aggregator
+      - DB_NAME=svap_query_service
       - SVAP_FSG_HOST=${SVAP_FSG_HOST:-http://svap-gk:8080}
       - SVAP_FSG_SUFFIX=${SVAP_FSG_SUFFIX:-/api/query/execute}
       - SVAP_TURN_HOST=${SVAP_TURN_HOST:-http://svap-gk:8080}

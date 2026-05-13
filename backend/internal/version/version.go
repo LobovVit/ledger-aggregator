@@ -1,7 +1,7 @@
 package version
 
 var (
-	AppName   = "Ledger Aggregator"
+	AppName   = "SVAP Query Service"
 	Version   = "1.0.0"
 	GitCommit = "unknown"
 	GitBranch = "unknown"

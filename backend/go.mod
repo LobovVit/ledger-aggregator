@@ -1,4 +1,4 @@
-module ledger-aggregator/backend
+module svap-query-service/backend
 
 go 1.25.0
 

@@ -1,4 +1,4 @@
-# Подсистема интеграции со СВАП (Ledger Aggregator)
+# Подсистема интеграции со СВАП (SVAP Query Service)
 
 Данная подсистема предназначена для получения данных из внешней системы СВАП и интеграции со справочниками функциональных подсистем (ФП).
 
@@ -82,10 +82,10 @@ SQL-скрипты инициализации расположены в `db/migr
 Для сборки проекта с учетом версии Git:
 ```bash
 cd backend
-go build -ldflags "-X 'ledger-aggregator/backend/internal/version.GitCommit=$(git rev-parse --short HEAD)' -X 'ledger-aggregator/backend/internal/version.GitBranch=$(git rev-parse --abbrev-ref HEAD)'" -o main ./cmd/server
+go build -ldflags "-X 'svap-query-service/backend/internal/version.GitCommit=$(git rev-parse --short HEAD)' -X 'svap-query-service/backend/internal/version.GitBranch=$(git rev-parse --abbrev-ref HEAD)'" -o main ./cmd/server
 ```
 
 Или через Docker:
 ```bash
-docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) -t ledger-aggregator .
+docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) -t svap-query-service .
 ```

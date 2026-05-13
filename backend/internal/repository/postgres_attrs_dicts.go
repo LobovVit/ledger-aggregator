@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"ledger-aggregator/backend/internal/model"
+	"svap-query-service/backend/internal/model"
 
 	"github.com/lib/pq"
 )

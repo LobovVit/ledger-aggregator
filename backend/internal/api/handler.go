@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"ledger-aggregator/backend/internal/config"
-	"ledger-aggregator/backend/internal/model"
-	"ledger-aggregator/backend/internal/service"
-	"ledger-aggregator/backend/internal/version"
+	"svap-query-service/backend/internal/config"
+	"svap-query-service/backend/internal/model"
+	"svap-query-service/backend/internal/service"
+	"svap-query-service/backend/internal/version"
 
 	"github.com/google/uuid"
 )

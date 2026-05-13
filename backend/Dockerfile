@@ -14,7 +14,7 @@ COPY . .
 # Build the application
 ARG GIT_COMMIT=unknown
 ARG GIT_BRANCH=unknown
-RUN go build -ldflags "-X 'ledger-aggregator/backend/internal/version.GitCommit=${GIT_COMMIT}' -X 'ledger-aggregator/backend/internal/version.GitBranch=${GIT_BRANCH}'" -o main ./cmd/server
+RUN go build -ldflags "-X 'svap-query-service/backend/internal/version.GitCommit=${GIT_COMMIT}' -X 'svap-query-service/backend/internal/version.GitBranch=${GIT_BRANCH}'" -o main ./cmd/server
 
 # Final stage
 FROM alpine:3.22

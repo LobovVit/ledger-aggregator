@@ -11,21 +11,21 @@ import (
 	"syscall"
 	"time"
 
-	"ledger-aggregator/backend/internal/api"
-	"ledger-aggregator/backend/internal/config"
-	"ledger-aggregator/backend/internal/repository"
-	"ledger-aggregator/backend/internal/service"
-	"ledger-aggregator/backend/internal/svap"
+	"svap-query-service/backend/internal/api"
+	"svap-query-service/backend/internal/config"
+	"svap-query-service/backend/internal/repository"
+	"svap-query-service/backend/internal/service"
+	"svap-query-service/backend/internal/svap"
 
-	_ "ledger-aggregator/backend/docs"
+	_ "svap-query-service/backend/docs"
 
 	"github.com/lib/pq"
 	"github.com/swaggo/http-swagger/v2"
 )
 
-// @title Ledger Aggregator API / API агрегатора витрин
+// @title API SVAP Query Service / API агрегатора витрин
 // @version 1.0
-// @description RU: API сервиса Ledger Aggregator для интеграции со СВАП, управления сохраненными запросами, результатами и динамической конфигурацией. EN: API server for the Ledger Aggregator service, used to integrate with SVAP and manage saved queries, query results, and dynamic configuration.
+// @description RU: API сервиса SVAP Query Service для интеграции со СВАП, управления сохраненными запросами, результатами и динамической конфигурацией. EN: API server for SVAP Query Service, used to integrate with SVAP and manage saved queries, query results, and dynamic configuration.
 
 // @host localhost:8080
 // @BasePath /api/v1
@@ -37,7 +37,7 @@ func main() {
 		getEnv("DB_PORT", "5432"),
 		getEnv("DB_USER", "postgres"),
 		getEnv("DB_PASSWORD", "postgres"),
-		getEnv("DB_NAME", "ledger_aggregator"),
+		getEnv("DB_NAME", "svap_query_service"),
 		getEnv("DB_SSLMODE", "disable"),
 	)
 	db, err := sql.Open("postgres", dsn)

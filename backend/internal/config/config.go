@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"ledger-aggregator/backend/internal/repository"
+	"svap-query-service/backend/internal/repository"
 )
 
 // Константы для ключей групп конфигурации

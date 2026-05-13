@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"ledger-aggregator/backend/internal/config"
-	"ledger-aggregator/backend/internal/model"
+	"svap-query-service/backend/internal/config"
+	"svap-query-service/backend/internal/model"
 )
 
 // Client интерфейс для взаимодействия с внешней системой СВАП

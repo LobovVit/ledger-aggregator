@@ -1,4 +1,4 @@
--- Итоговая схема базы данных для чистой установки Ledger Aggregator.
+-- Итоговая схема базы данных для чистой установки SVAP Query Service.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 

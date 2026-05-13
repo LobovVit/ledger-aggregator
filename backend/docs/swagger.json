@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "RU: API сервиса Ledger Aggregator для интеграции со СВАП, управления сохраненными запросами, результатами и динамической конфигурацией. EN: API server for the Ledger Aggregator service, used to integrate with SVAP and manage saved queries, query results, and dynamic configuration.",
-        "title": "Ledger Aggregator API / API агрегатора витрин",
+        "description": "RU: API сервиса SVAP Query Service для интеграции со СВАП, управления сохраненными запросами, результатами и динамической конфигурацией. EN: API server for SVAP Query Service, used to integrate with SVAP and manage saved queries, query results, and dynamic configuration.",
+        "title": "API SVAP Query Service / API агрегатора витрин",
         "contact": {},
         "version": "1.0"
     },

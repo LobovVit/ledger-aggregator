@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"ledger-aggregator/backend/internal/model"
-	"ledger-aggregator/backend/internal/repository"
-	"ledger-aggregator/backend/internal/svap"
+	"svap-query-service/backend/internal/model"
+	"svap-query-service/backend/internal/repository"
+	"svap-query-service/backend/internal/svap"
 
 	"github.com/google/uuid"
 )

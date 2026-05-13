@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"ledger-aggregator/backend/internal/config"
-	"ledger-aggregator/backend/internal/model"
-	"ledger-aggregator/backend/internal/repository"
-	"ledger-aggregator/backend/internal/service"
-	"ledger-aggregator/backend/internal/svap"
+	"svap-query-service/backend/internal/config"
+	"svap-query-service/backend/internal/model"
+	"svap-query-service/backend/internal/repository"
+	"svap-query-service/backend/internal/service"
+	"svap-query-service/backend/internal/svap"
 
 	"github.com/google/uuid"
 
@@ -26,7 +26,7 @@ func main() {
 		getEnv("DB_PORT", "5432"),
 		getEnv("DB_USER", "postgres"),
 		getEnv("DB_PASSWORD", "postgres"),
-		getEnv("DB_NAME", "ledger_aggregator"),
+		getEnv("DB_NAME", "svap_query_service"),
 		getEnv("DB_SSLMODE", "disable"),
 	)
 	db, err := sql.Open("postgres", dsn)

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"ledger-aggregator/backend/internal/model"
+	"svap-query-service/backend/internal/model"
 )
 
 // AnalyticalAttributeRepository интерфейс для хранения АП
