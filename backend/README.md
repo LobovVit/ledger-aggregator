@@ -79,8 +79,13 @@ SQL-скрипты инициализации расположены в `db/migr
 
 ## Запуск
 
-Для сборки проекта:
+Для сборки проекта с учетом версии Git:
 ```bash
 cd backend
-go build ./...
+go build -ldflags "-X 'ledger-aggregator/backend/internal/version.GitCommit=$(git rev-parse --short HEAD)' -X 'ledger-aggregator/backend/internal/version.GitBranch=$(git rev-parse --abbrev-ref HEAD)'" -o main ./cmd/server
+```
+
+Или через Docker:
+```bash
+docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) -t ledger-aggregator .
 ```

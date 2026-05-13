@@ -22,20 +22,25 @@ type DictionaryCacheRepository interface {
 
 // SavedQueryRepository интерфейс для управления сохраненными запросами
 type SavedQueryRepository interface {
-	Save(ctx context.Context, q model.SavedQuery) error
+	Save(ctx context.Context, q model.SavedQuery) (string, error)
 	GetByID(ctx context.Context, id string) (model.SavedQuery, error)
 	GetByUserID(ctx context.Context, userID string) ([]model.SavedQuery, error)
+	GetAll(ctx context.Context) ([]model.SavedQuery, error)
 	Update(ctx context.Context, q model.SavedQuery) error
+	Delete(ctx context.Context, id string) error
 }
 
 // QueryResultRepository интерфейс для хранения результатов запросов
 type QueryResultRepository interface {
-	Save(ctx context.Context, res model.QueryResult, rows []model.QueryResultRow, values []model.QueryResultValue) error
+	Save(ctx context.Context, res model.QueryResult, rows []model.QueryResultRow, values []model.QueryResultValue) (string, error)
 	GetByQueryID(ctx context.Context, queryID string) ([]model.QueryResult, error)
+	GetByUserID(ctx context.Context, userID string) ([]model.QueryResult, error)
 	GetByID(ctx context.Context, id string) (model.QueryResult, error)
+	GetAll(ctx context.Context) ([]model.QueryResult, error)
 	GetRows(ctx context.Context, resultID string) ([]model.QueryResultRow, error)
 	GetValuesByRowID(ctx context.Context, rowID string) ([]model.QueryResultValue, error)
-	GetFullResultData(ctx context.Context, resultID string) ([]map[string]any, error)
+	GetFullResultData(ctx context.Context, resultID string, offset, limit int) ([]map[string]any, error)
+	Delete(ctx context.Context, id string) error
 }
 
 // ConfigRepository интерфейс для персистентного хранения конфигурации

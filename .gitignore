@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+
+# Local environment
+.env
+backend/.env
+
+# Go build/test artifacts
+backend/main
+*.test
+coverage.out
+
+# Generated local data
+postgres_data/

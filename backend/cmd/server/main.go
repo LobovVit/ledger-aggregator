@@ -13,13 +13,22 @@ import (
 
 	"ledger-aggregator/backend/internal/api"
 	"ledger-aggregator/backend/internal/config"
-	"ledger-aggregator/backend/internal/model"
 	"ledger-aggregator/backend/internal/repository"
 	"ledger-aggregator/backend/internal/service"
 	"ledger-aggregator/backend/internal/svap"
 
-	_ "github.com/lib/pq"
+	_ "ledger-aggregator/backend/docs"
+
+	"github.com/lib/pq"
+	"github.com/swaggo/http-swagger/v2"
 )
+
+// @title Ledger Aggregator API / API агрегатора витрин
+// @version 1.0
+// @description RU: API сервиса Ledger Aggregator для интеграции со СВАП, управления сохраненными запросами, результатами и динамической конфигурацией. EN: API server for the Ledger Aggregator service, used to integrate with SVAP and manage saved queries, query results, and dynamic configuration.
+
+// @host localhost:8080
+// @BasePath /api/v1
 
 func main() {
 	// 0. Подключение к БД
@@ -43,7 +52,8 @@ func main() {
 
 	// 0.1 Выполнение миграций
 	migrationRunner := repository.NewMigrationRunner(db)
-	if err := migrationRunner.Run(context.Background(), "db/migrations"); err != nil {
+	migrationsDir := getEnv("MIGRATIONS_DIR", "db/migrations")
+	if err := migrationRunner.Run(context.Background(), migrationsDir); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
@@ -53,14 +63,14 @@ func main() {
 	cfg := configService.GetCurrent()
 
 	// 2. Инициализация зависимостей
-	svapClient := &svap.MockClient{} // В реальности svap.NewRealClient(configService)
+	svapClient := svap.NewRealClient(configService)
 
-	attrRepo := &mockAttrRepo{}
-	queryRepo := &mockQueryRepo{}
-	resultRepo := &mockResultRepo{}
-	dictRepo := &mockDictRepo{}
+	attrRepo := repository.NewPostgresAnalyticalAttributeRepository(db)
+	queryRepo := repository.NewPostgresSavedQueryRepository(db)
+	resultRepo := repository.NewPostgresQueryResultRepository(db)
+	dictRepo := repository.NewPostgresDictionaryCacheRepository(db)
 
-	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo)
+	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo, configService)
 
 	// 3. Запуск фоновых задач
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,12 +78,14 @@ func main() {
 	aggregator.StartSyncJob(ctx, 24*time.Hour)
 
 	// Запуск слушателя обновлений конфигурации (для многоузловой работы)
-	go listenConfigUpdates(ctx, configService)
+	go listenConfigUpdates(ctx, dsn, configService)
 
 	// 4. Настройка HTTP сервера
 	handler := api.NewHandler(aggregator, configService)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
+
+	mux.Handle("GET /swagger/", httpSwagger.WrapHandler)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Server.Port,
@@ -98,63 +110,6 @@ func main() {
 	server.Shutdown(shutdownCtx)
 }
 
-// Заглушки для компиляции
-type mockAttrRepo struct{}
-
-func (m *mockAttrRepo) SaveAll(ctx context.Context, attrs []model.AnalyticalAttribute) error {
-	return nil
-}
-func (m *mockAttrRepo) GetAll(ctx context.Context) ([]model.AnalyticalAttribute, error) {
-	return nil, nil
-}
-func (m *mockAttrRepo) GetByBusiness(ctx context.Context, business string) ([]model.AnalyticalAttribute, error) {
-	return nil, nil
-}
-
-type mockQueryRepo struct{}
-
-func (m *mockQueryRepo) Save(ctx context.Context, q model.SavedQuery) error { return nil }
-func (m *mockQueryRepo) GetByID(ctx context.Context, id string) (model.SavedQuery, error) {
-	return model.SavedQuery{}, nil
-}
-func (m *mockQueryRepo) GetByUserID(ctx context.Context, userID string) ([]model.SavedQuery, error) {
-	return nil, nil
-}
-func (m *mockQueryRepo) Update(ctx context.Context, q model.SavedQuery) error { return nil }
-
-type mockResultRepo struct{}
-
-func (m *mockResultRepo) Save(ctx context.Context, res model.QueryResult, rows []model.QueryResultRow, values []model.QueryResultValue) error {
-	return nil
-}
-func (m *mockResultRepo) GetByQueryID(ctx context.Context, queryID string) ([]model.QueryResult, error) {
-	return nil, nil
-}
-func (m *mockResultRepo) GetByID(ctx context.Context, id string) (model.QueryResult, error) {
-	return model.QueryResult{}, nil
-}
-func (m *mockResultRepo) GetRows(ctx context.Context, resultID string) ([]model.QueryResultRow, error) {
-	return nil, nil
-}
-func (m *mockResultRepo) GetValuesByRowID(ctx context.Context, rowID string) ([]model.QueryResultValue, error) {
-	return nil, nil
-}
-func (m *mockResultRepo) GetFullResultData(ctx context.Context, resultID string) ([]map[string]any, error) {
-	return nil, nil
-}
-
-type mockDictRepo struct{}
-
-func (m *mockDictRepo) Get(ctx context.Context, business string, dictionaryCode string, key string) (string, error) {
-	return "", nil
-}
-func (m *mockDictRepo) Set(ctx context.Context, business string, dictionaryCode string, key string, value string) error {
-	return nil
-}
-func (m *mockDictRepo) Search(ctx context.Context, business string, dictionaryCode string, query string) ([]model.DictionaryItem, error) {
-	return nil, nil
-}
-
 type mockConfigRepo struct{}
 
 func (m *mockConfigRepo) Save(ctx context.Context, groupName string, cfg any) error { return nil }
@@ -164,9 +119,9 @@ func (m *mockConfigRepo) Load(ctx context.Context, groupName string) (any, error
 		return config.ServerConfig{Port: "8080"}, nil
 	case config.GroupSVAP:
 		return config.SVAPConfig{
-			GKHost: "http://svap-gk",
-			LSHost: "http://svap-ls",
-			JOHost: "http://svap-jo",
+			Endpoints: map[string]config.SVAPEndpoint{
+				"FSG": {Host: "http://svap-gk", Suffix: "/api/query/execute"},
+			},
 		}, nil
 	case config.GroupRetention:
 		return config.RetentionConfig{
@@ -182,9 +137,9 @@ func (m *mockConfigRepo) LoadAll(ctx context.Context) (map[string]any, error) {
 	return map[string]any{
 		config.GroupServer: config.ServerConfig{Port: "8080"},
 		config.GroupSVAP: config.SVAPConfig{
-			GKHost: "http://svap-gk",
-			LSHost: "http://svap-ls",
-			JOHost: "http://svap-jo",
+			Endpoints: map[string]config.SVAPEndpoint{
+				"FSG": {Host: "http://svap-gk", Suffix: "/api/query/execute"},
+			},
 		},
 		config.GroupRetention: config.RetentionConfig{
 			DefaultTTL: "24h",
@@ -195,22 +150,42 @@ func (m *mockConfigRepo) LoadAll(ctx context.Context) (map[string]any, error) {
 	}, nil
 }
 
-func listenConfigUpdates(ctx context.Context, s *config.ConfigService) {
-	// В реальности здесь используется PQ Listener для Postgres
-	// Для демонстрации гарантированной доставки добавим логику переподключения
-	for {
-		log.Println("Config update listener connecting...")
-		// 1. Устанавливаем LISTEN
-		// 2. В цикле ждем уведомлений
-		// 3. Если получили уведомление с payload (имя группы):
-		//    s.ReloadGroup(ctx, payload)
-		// 4. Если ошибка соединения - делаем Backoff и RECONNECT
-		// 5. ПОСЛЕ восстановления связи ВСЕГДА вызываем s.ReloadAll(ctx) для синхронизации пропущенного
+func listenConfigUpdates(ctx context.Context, dsn string, s *config.ConfigService) {
+	listener := pq.NewListener(dsn, 5*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+		if err != nil {
+			log.Printf("config listener event %v: %v", ev, err)
+		}
+	})
+	defer listener.Close()
 
+	if err := listener.Listen("config_updated"); err != nil {
+		log.Printf("failed to listen for config updates: %v", err)
+	}
+
+	pollTicker := time.NewTicker(10 * time.Minute)
+	defer pollTicker.Stop()
+
+	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(10 * time.Minute): // Имитация периодической сверки (Polling)
+		case notification := <-listener.Notify:
+			if notification == nil {
+				if err := s.ReloadAll(ctx); err != nil {
+					log.Printf("failed to reload all config after listener reconnect: %v", err)
+				}
+				continue
+			}
+			if notification.Extra == "" {
+				if err := s.ReloadAll(ctx); err != nil {
+					log.Printf("failed to reload all config: %v", err)
+				}
+				continue
+			}
+			if err := s.ReloadGroup(ctx, notification.Extra); err != nil {
+				log.Printf("failed to reload config group %q: %v", notification.Extra, err)
+			}
+		case <-pollTicker.C:
 			_ = s.ReloadAll(ctx)
 		}
 	}

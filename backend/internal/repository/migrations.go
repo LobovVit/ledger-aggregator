@@ -24,17 +24,29 @@ func NewMigrationRunner(db *sql.DB) *MigrationRunner {
 func (m *MigrationRunner) Run(ctx context.Context, migrationsDir string) error {
 	// Блокировка на уровне БД, чтобы только один экземпляр выполнял миграции одновременно.
 	// Используем произвольное число (например, 12345) в качестве ID лока.
+	conn, err := m.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to reserve db connection for advisory lock: %w", err)
+	}
+	defer conn.Close()
+
 	lockID := 12345
-	if _, err := m.db.ExecContext(ctx, "SELECT pg_advisory_lock($1)", lockID); err != nil {
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", lockID); err != nil {
 		return fmt.Errorf("failed to acquire advisory lock: %w", err)
 	}
 	defer func() {
-		_, _ = m.db.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", lockID)
+		_, _ = conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", lockID)
 	}()
 
 	// 1. Создаем таблицу миграций, если её нет
 	if err := m.ensureMigrationsTable(ctx); err != nil {
 		return fmt.Errorf("failed to ensure migrations table: %w", err)
+	}
+
+	// ФИКС: Если мы используем PostgreSQL 17+, gen_random_uuid() доступен из коробки.
+	// Но для старых версий или на всякий случай, убедимся что pgcrypto доступен.
+	if _, err := m.db.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pgcrypto;"); err != nil {
+		fmt.Printf("Warning: failed to enable pgcrypto: %v\n", err)
 	}
 
 	// 2. Получаем список файлов миграций

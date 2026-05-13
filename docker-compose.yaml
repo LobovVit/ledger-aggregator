@@ -9,7 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ledger_aggregator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
@@ -23,11 +27,18 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=ledger_aggregator
-      - SVAP_HOST_GK=${SVAP_HOST_GK:-http://svap-gk:8080}
-      - SVAP_HOST_LS=${SVAP_HOST_LS:-http://svap-ls:8080}
-      - SVAP_HOST_JO=${SVAP_HOST_JO:-http://svap-jo:8080}
+      - SVAP_FSG_HOST=${SVAP_FSG_HOST:-http://svap-gk:8080}
+      - SVAP_FSG_SUFFIX=${SVAP_FSG_SUFFIX:-/api/query/execute}
+      - SVAP_TURN_HOST=${SVAP_TURN_HOST:-http://svap-gk:8080}
+      - SVAP_TURN_SUFFIX=${SVAP_TURN_SUFFIX:-/api/query/execute}
+      - SVAP_PA_HOST=${SVAP_PA_HOST:-http://svap-gk:8080}
+      - SVAP_PA_SUFFIX=${SVAP_PA_SUFFIX:-/api/query/execute}
+      - SVAP_CONS_HOST=${SVAP_CONS_HOST:-http://svap-gk:8080}
+      - SVAP_CONS_SUFFIX=${SVAP_CONS_SUFFIX:-/api/query/execute}
+      - SVAP_INSECURE_SKIP_VERIFY=${SVAP_INSECURE_SKIP_VERIFY:-false}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

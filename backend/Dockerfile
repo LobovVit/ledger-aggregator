@@ -6,21 +6,26 @@ WORKDIR /app
 # Copy go mod and sum files
 COPY go.mod ./
 COPY go.sum ./
-# RUN go mod download
+RUN go mod download
 
 # Copy the source code
 COPY . .
 
 # Build the application
-RUN go build -o main ./cmd/server
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+RUN go build -ldflags "-X 'ledger-aggregator/backend/internal/version.GitCommit=${GIT_COMMIT}' -X 'ledger-aggregator/backend/internal/version.GitBranch=${GIT_BRANCH}'" -o main ./cmd/server
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /root/
 
 # Copy the pre-built binary
 COPY --from=builder /app/main .
+COPY --from=builder /app/db/migrations ./db/migrations
 COPY .env.example .env
 
 # Expose port

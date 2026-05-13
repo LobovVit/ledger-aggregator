@@ -1,0 +1,530 @@
+basePath: /api/v1
+definitions:
+  api.ExecuteQueryRequest:
+    properties:
+      description:
+        type: string
+      end_rep_date:
+        type: string
+      limit:
+        type: integer
+      name:
+        type: string
+      offset:
+        type: integer
+      org_code:
+        type: string
+      query_id:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      start_rep_date:
+        type: string
+      visibility:
+        type: string
+    type: object
+  config.AppConfig:
+    properties:
+      retention:
+        $ref: '#/definitions/config.RetentionConfig'
+      server:
+        $ref: '#/definitions/config.ServerConfig'
+      svap:
+        $ref: '#/definitions/config.SVAPConfig'
+    type: object
+  config.RetentionConfig:
+    properties:
+      default_ttl:
+        description: Например, "24h"
+        type: string
+      org_ttls:
+        additionalProperties:
+          type: string
+        description: 'Напр. {"9500": "288h"}'
+        type: object
+      role_ttls:
+        additionalProperties:
+          type: string
+        description: 'Напр. {"admin": "72h"}'
+        type: object
+      user_ttls:
+        additionalProperties:
+          type: string
+        description: 'Напр. {"lobov.vit": "144h"}'
+        type: object
+    type: object
+  config.SVAPConfig:
+    properties:
+      endpoints:
+        additionalProperties:
+          $ref: '#/definitions/config.SVAPEndpoint'
+        description: Ключ - тип запроса (FSG, TURN, PA, CONS и т.д.)
+        type: object
+    type: object
+  config.SVAPEndpoint:
+    properties:
+      host:
+        type: string
+      suffix:
+        type: string
+    type: object
+  config.ServerConfig:
+    properties:
+      port:
+        type: string
+    type: object
+  model.QueryResult:
+    properties:
+      description:
+        type: string
+      expires_at:
+        type: string
+      fetched_at:
+        type: string
+      id:
+        type: string
+      meta:
+        description: Метаинформация для АИ
+      name:
+        type: string
+      query_id:
+        type: string
+      visibility:
+        type: string
+    type: object
+  model.SavedQuery:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      params:
+        description: JSON-строка параметров
+        type: string
+      query_type:
+        description: OPLIST, FSG, TURN, ReportGK, COR, PA, CONS
+        type: string
+      user_id:
+        type: string
+      visibility:
+        description: private, organization, public
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 'RU: API сервиса Ledger Aggregator для интеграции со СВАП, управления
+    сохраненными запросами, результатами и динамической конфигурацией. EN: API server
+    for the Ledger Aggregator service, used to integrate with SVAP and manage saved
+    queries, query results, and dynamic configuration.'
+  title: Ledger Aggregator API / API агрегатора витрин
+  version: "1.0"
+paths:
+  /config:
+    get:
+      description: 'RU: Возвращает всю подготовленную конфигурацию, включая еще не
+        примененные изменения. EN: Returns the full pending configuration, including
+        unapplied changes.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Подготовленная конфигурация / EN: Pending configuration'
+          schema:
+            $ref: '#/definitions/config.AppConfig'
+      summary: 'RU: Получить текущую подготовленную конфигурацию / EN: Get current
+        pending configuration'
+      tags:
+      - config
+    put:
+      consumes:
+      - application/json
+      description: 'RU: Частично или полностью обновляет подготовленную конфигурацию
+        из JSON-тела без немедленного применения. EN: Partially or fully updates the
+        pending configuration from the JSON body without applying it immediately.'
+      parameters:
+      - description: 'RU: Частичный или полный JSON конфигурации / EN: Partial or
+          full configuration JSON'
+        in: body
+        name: config
+        required: true
+        schema: {}
+      responses:
+        "204":
+          description: 'RU: Обновлено, тело ответа отсутствует / EN: Updated, no response
+            body'
+        "400":
+          description: 'RU: Некорректное тело запроса / EN: Invalid request body'
+          schema:
+            type: string
+      summary: 'RU: Обновить подготовленную конфигурацию / EN: Update pending configuration'
+      tags:
+      - config
+  /config/apply:
+    post:
+      description: 'RU: Сохраняет подготовленную конфигурацию в БД и отправляет уведомление
+        узлам через PostgreSQL NOTIFY. EN: Persists the pending configuration to the
+        database and notifies nodes through PostgreSQL NOTIFY.'
+      responses:
+        "200":
+          description: 'RU: Конфигурация применена / EN: Configuration applied'
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Применить подготовленную конфигурацию / EN: Apply pending configuration'
+      tags:
+      - config
+  /config/groups:
+    get:
+      description: 'RU: Возвращает имена доступных групп конфигурации. EN: Returns
+        names of available configuration groups.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Группы конфигурации / EN: Configuration groups'
+          schema:
+            items:
+              type: string
+            type: array
+      summary: 'RU: Получить группы конфигурации / EN: List configuration groups'
+      tags:
+      - config
+  /config/groups/{name}:
+    get:
+      description: 'RU: Возвращает настройки указанной группы: server, svap или retention.
+        EN: Returns settings for the specified group: server, svap, or retention.'
+      parameters:
+      - description: 'RU: Имя группы / EN: Group name'
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Настройки группы / EN: Group settings'
+          schema: {}
+        "404":
+          description: 'RU: Группа не найдена / EN: Group not found'
+          schema:
+            type: string
+      summary: 'RU: Получить группу конфигурации / EN: Get a configuration group'
+      tags:
+      - config
+  /info:
+    get:
+      description: 'RU: Возвращает имя приложения, версию, Git-метаданные и текущее
+        время сервера. EN: Returns application name, version, Git metadata, and current
+        server time.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Информация о приложении / EN: App info'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 'RU: Получить информацию о приложении / EN: Get application info'
+      tags:
+      - info
+  /queries:
+    get:
+      description: 'RU: Возвращает список сохраненных запросов пользователя из заголовка
+        X-User-ID. EN: Returns saved queries for the user from the X-User-ID header.'
+      parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Список сохраненных запросов / EN: Saved query list'
+          schema:
+            items:
+              $ref: '#/definitions/model.SavedQuery'
+            type: array
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить сохраненные запросы / EN: List saved queries'
+      tags:
+      - queries
+    post:
+      consumes:
+      - application/json
+      description: 'RU: Регистрирует новый шаблон запроса с параметрами фильтрации.
+        Пользователь определяется по заголовку X-User-ID. EN: Registers a new query
+        template with filter parameters. The user is resolved from the X-User-ID header.'
+      parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      - description: 'RU: Описание запроса / EN: Query definition'
+        in: body
+        name: query
+        required: true
+        schema:
+          $ref: '#/definitions/model.SavedQuery'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 'RU: Запрос создан / EN: Query created'
+          schema:
+            $ref: '#/definitions/model.SavedQuery'
+        "400":
+          description: 'RU: Некорректное тело запроса или видимость / EN: Invalid
+            request body or visibility'
+          schema:
+            type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: user_id не совпадает с X-User-ID / EN: user_id does not
+            match X-User-ID'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Создать сохраненный запрос / EN: Create a saved query'
+      tags:
+      - queries
+  /queries/{id}:
+    delete:
+      description: 'RU: Удаляет сохраненный запрос и все связанные с ним результаты.
+        EN: Deletes a saved query and all related query results.'
+      parameters:
+      - description: 'RU: UUID запроса / EN: Query UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: 'RU: Удалено, тело ответа отсутствует / EN: Deleted, no response
+            body'
+        "400":
+          description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Удалить сохраненный запрос / EN: Delete a saved query'
+      tags:
+      - queries
+    get:
+      description: 'RU: Возвращает параметры конкретного сохраненного запроса по UUID.
+        EN: Returns details of a saved query by UUID.'
+      parameters:
+      - description: 'RU: UUID запроса / EN: Query UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Сохраненный запрос / EN: Saved query'
+          schema:
+            $ref: '#/definitions/model.SavedQuery'
+        "400":
+          description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Запрос не найден / EN: Query not found'
+          schema:
+            type: string
+      summary: 'RU: Получить сохраненный запрос / EN: Get a saved query'
+      tags:
+      - queries
+  /queries/{id}/results:
+    get:
+      description: 'RU: Возвращает историю выполнений для указанного сохраненного
+        запроса. EN: Returns execution history for the specified saved query.'
+      parameters:
+      - description: 'RU: UUID запроса / EN: Query UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: История результатов / EN: Query result history'
+          schema:
+            items:
+              $ref: '#/definitions/model.QueryResult'
+            type: array
+        "400":
+          description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить результаты запроса / EN: List query results'
+      tags:
+      - results
+  /query/execute:
+    post:
+      consumes:
+      - application/json
+      description: 'RU: Выполняет запрос к СВАП по сохраненному шаблону, сохраняет
+        результат и возвращает его метаданные. EN: Executes a saved query template
+        against SVAP, stores the result, and returns its metadata.'
+      parameters:
+      - description: 'RU: Параметры выполнения / EN: Execution parameters'
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ExecuteQueryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Метаданные сохраненного результата / EN: Stored result
+            metadata'
+          schema:
+            $ref: '#/definitions/model.QueryResult'
+        "400":
+          description: 'RU: Некорректное тело запроса / EN: Invalid request body'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Выполнить сохраненный запрос / EN: Execute a saved query'
+      tags:
+      - queries
+  /results:
+    get:
+      description: 'RU: Возвращает все результаты выполнения запросов пользователя
+        из заголовка X-User-ID. EN: Returns all query execution results for the user
+        from the X-User-ID header.'
+      parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Список результатов / EN: Query result list'
+          schema:
+            items:
+              $ref: '#/definitions/model.QueryResult'
+            type: array
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить все результаты пользователя / EN: List user query results'
+      tags:
+      - results
+  /results/{id}:
+    delete:
+      description: 'RU: Удаляет конкретный результат выполнения запроса и связанные
+        строки данных. EN: Deletes a specific query execution result and its stored
+        data rows.'
+      parameters:
+      - description: 'RU: UUID результата / EN: Result UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: 'RU: Удалено, тело ответа отсутствует / EN: Deleted, no response
+            body'
+        "400":
+          description: 'RU: Некорректный UUID результата / EN: Invalid result UUID'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Удалить результат запроса / EN: Delete a query result'
+      tags:
+      - results
+  /results/{id}/data:
+    get:
+      description: 'RU: Возвращает строки и значения конкретного результата выполнения
+        с поддержкой пагинации. EN: Returns rows and values for a specific execution
+        result with pagination support.'
+      parameters:
+      - description: 'RU: UUID результата / EN: Result UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'RU: Количество строк, максимум 1000 / EN: Number of rows to
+          return, max 1000'
+        in: query
+        name: limit
+        type: integer
+      - description: 'RU: Количество строк для пропуска / EN: Number of rows to skip'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Плоские строки результата / EN: Flat result rows'
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "400":
+          description: 'RU: Некорректный UUID, limit или offset / EN: Invalid UUID,
+            limit, or offset'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить данные результата / EN: Get query result data'
+      tags:
+      - results
+swagger: "2.0"

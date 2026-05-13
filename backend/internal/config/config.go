@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 
@@ -26,10 +27,13 @@ type RetentionConfig struct {
 	UserTTLs   map[string]string `json:"user_ttls"`   // Напр. {"lobov.vit": "144h"}
 }
 
+type SVAPEndpoint struct {
+	Host   string `json:"host"`
+	Suffix string `json:"suffix"`
+}
+
 type SVAPConfig struct {
-	GKHost string `json:"gk_host"`
-	LSHost string `json:"ls_host"`
-	JOHost string `json:"jo_host"`
+	Endpoints map[string]SVAPEndpoint `json:"endpoints"` // Ключ - тип запроса (FSG, TURN, PA, CONS и т.д.)
 }
 
 type ServerConfig struct {
@@ -57,9 +61,24 @@ func NewConfigService(repo repository.ConfigRepository) *ConfigService {
 			Port: getEnv("SERVER_PORT", "8080"),
 		},
 		SVAP: SVAPConfig{
-			GKHost: os.Getenv("SVAP_HOST_GK"),
-			LSHost: os.Getenv("SVAP_HOST_LS"),
-			JOHost: os.Getenv("SVAP_HOST_JO"),
+			Endpoints: map[string]SVAPEndpoint{
+				"FSG": {
+					Host:   getEnv("SVAP_FSG_HOST", os.Getenv("SVAP_HOST_GK")),
+					Suffix: getEnv("SVAP_FSG_SUFFIX", "/api/query/execute"),
+				},
+				"TURN": {
+					Host:   getEnv("SVAP_TURN_HOST", os.Getenv("SVAP_HOST_GK")),
+					Suffix: getEnv("SVAP_TURN_SUFFIX", "/api/query/execute"),
+				},
+				"PA": {
+					Host:   getEnv("SVAP_PA_HOST", os.Getenv("SVAP_HOST_GK")),
+					Suffix: getEnv("SVAP_PA_SUFFIX", "/api/query/execute"),
+				},
+				"CONS": {
+					Host:   getEnv("SVAP_CONS_HOST", os.Getenv("SVAP_HOST_GK")),
+					Suffix: getEnv("SVAP_CONS_SUFFIX", "/api/query/execute"),
+				},
+			},
 		},
 		Retention: RetentionConfig{
 			DefaultTTL: "24h",
@@ -73,11 +92,8 @@ func NewConfigService(repo repository.ConfigRepository) *ConfigService {
 
 	s := &ConfigService{
 		current: initial,
-		pending: &AppConfig{
-			Server: initial.Server,
-			SVAP:   initial.SVAP,
-		},
-		repo: repo,
+		pending: cloneAppConfig(initial),
+		repo:    repo,
 	}
 
 	// Загружаем всё из БД при старте
@@ -91,19 +107,19 @@ func NewConfigService(repo repository.ConfigRepository) *ConfigService {
 func (s *ConfigService) GetCurrent() AppConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return *s.current
+	return *cloneAppConfig(s.current)
 }
 
 func (s *ConfigService) GetPending() AppConfig {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return *s.pending
+	return *cloneAppConfig(s.pending)
 }
 
 func (s *ConfigService) UpdatePending(newCfg AppConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.pending = &newCfg
+	s.pending = cloneAppConfig(&newCfg)
 }
 
 // UpdatePendingFromRaw выполняет частичное обновление подготовленной конфигурации из JSON
@@ -127,12 +143,16 @@ func (s *ConfigService) UpdatePendingFromRaw(data []byte) error {
 		if err := json.Unmarshal(svapData, &s.pending.SVAP); err != nil {
 			return fmt.Errorf("failed to unmarshal svap config: %w", err)
 		}
+		if s.pending.SVAP.Endpoints == nil {
+			s.pending.SVAP.Endpoints = make(map[string]SVAPEndpoint)
+		}
 	}
 
 	if retentionData, ok := rawMap[GroupRetention]; ok {
 		if err := json.Unmarshal(retentionData, &s.pending.Retention); err != nil {
 			return fmt.Errorf("failed to unmarshal retention config: %w", err)
 		}
+		normalizeRetentionConfig(&s.pending.Retention)
 	}
 
 	return nil
@@ -141,13 +161,14 @@ func (s *ConfigService) UpdatePendingFromRaw(data []byte) error {
 // Apply сохраняет текущую подготовленную конфигурацию в БД по группам
 func (s *ConfigService) Apply(ctx context.Context) error {
 	s.mu.Lock()
-	pending := *s.pending
-	current := *s.current
+	pending := *cloneAppConfig(s.pending)
+	current := *cloneAppConfig(s.current)
 	s.mu.Unlock()
 
 	if s.repo == nil {
 		s.mu.Lock()
-		s.current = &pending
+		s.current = cloneAppConfig(&pending)
+		s.pending = cloneAppConfig(&pending)
 		s.mu.Unlock()
 		return nil
 	}
@@ -159,25 +180,21 @@ func (s *ConfigService) Apply(ctx context.Context) error {
 		}
 	}
 
-	// Сохраняем группу SVAP, если изменилась
-	if pending.SVAP != current.SVAP {
-		if err := s.repo.Save(ctx, GroupSVAP, pending.SVAP); err != nil {
-			return fmt.Errorf("failed to save svap config: %w", err)
-		}
+	// Сохраняем группу SVAP
+	if err := s.repo.Save(ctx, GroupSVAP, pending.SVAP); err != nil {
+		return fmt.Errorf("failed to save svap config: %w", err)
 	}
 
 	// Сохраняем группу Retention, если изменилась
-	if pending.Retention.DefaultTTL != current.Retention.DefaultTTL ||
-		fmt.Sprintf("%v", pending.Retention.RoleTTLs) != fmt.Sprintf("%v", current.Retention.RoleTTLs) ||
-		fmt.Sprintf("%v", pending.Retention.OrgTTLs) != fmt.Sprintf("%v", current.Retention.OrgTTLs) ||
-		fmt.Sprintf("%v", pending.Retention.UserTTLs) != fmt.Sprintf("%v", current.Retention.UserTTLs) {
+	if !reflect.DeepEqual(pending.Retention, current.Retention) {
 		if err := s.repo.Save(ctx, GroupRetention, pending.Retention); err != nil {
 			return fmt.Errorf("failed to save retention config: %w", err)
 		}
 	}
 
 	s.mu.Lock()
-	s.current = &pending
+	s.current = cloneAppConfig(&pending)
+	s.pending = cloneAppConfig(&pending)
 	s.mu.Unlock()
 
 	return nil
@@ -213,19 +230,27 @@ func (s *ConfigService) ReloadGroup(ctx context.Context, group string) error {
 		}
 	case GroupSVAP:
 		if cfg, ok := data.(SVAPConfig); ok {
+			if cfg.Endpoints == nil {
+				cfg.Endpoints = make(map[string]SVAPEndpoint)
+			}
 			s.current.SVAP = cfg
 			s.pending.SVAP = cfg
 		} else {
 			if err := mapToStruct(data, &s.current.SVAP); err == nil {
+				if s.current.SVAP.Endpoints == nil {
+					s.current.SVAP.Endpoints = make(map[string]SVAPEndpoint)
+				}
 				s.pending.SVAP = s.current.SVAP
 			}
 		}
 	case GroupRetention:
 		if cfg, ok := data.(RetentionConfig); ok {
+			normalizeRetentionConfig(&cfg)
 			s.current.Retention = cfg
 			s.pending.Retention = cfg
 		} else {
 			if err := mapToStruct(data, &s.current.Retention); err == nil {
+				normalizeRetentionConfig(&s.current.Retention)
 				s.pending.Retention = s.current.Retention
 			}
 		}
@@ -254,36 +279,59 @@ func (s *ConfigService) reloadAllInternal(ctx context.Context, updateCurrent boo
 	defer s.mu.Unlock()
 
 	if val, ok := all[GroupServer]; ok {
-		_ = mapToStruct(val, &s.current.Server)
+		if err := mapToStruct(val, &s.current.Server); err != nil {
+			return fmt.Errorf("failed to decode server config: %w", err)
+		}
 		s.pending.Server = s.current.Server
 	}
 	if val, ok := all[GroupSVAP]; ok {
-		_ = mapToStruct(val, &s.current.SVAP)
+		if err := mapToStruct(val, &s.current.SVAP); err != nil {
+			return fmt.Errorf("failed to decode svap config: %w", err)
+		}
+		if s.current.SVAP.Endpoints == nil {
+			s.current.SVAP.Endpoints = make(map[string]SVAPEndpoint)
+		}
 		s.pending.SVAP = s.current.SVAP
 	}
 	if val, ok := all[GroupRetention]; ok {
-		_ = mapToStruct(val, &s.current.Retention)
+		if err := mapToStruct(val, &s.current.Retention); err != nil {
+			return fmt.Errorf("failed to decode retention config: %w", err)
+		}
+		normalizeRetentionConfig(&s.current.Retention)
 		s.pending.Retention = s.current.Retention
 	}
+	s.pending = cloneAppConfig(s.current)
 
 	log.Println("All configuration groups reloaded from DB")
 	return nil
 }
 
-// GetRetentionTTL возвращает время жизни витрины исходя из иерархии: пользователь -> роль -> организация -> значение по умолчанию
+// GetRetentionTTL возвращает время жизни витрины исходя из иерархии в порядке возрастания приоритета:
+// default_ttl -> org_ttls -> role_ttls -> user_ttls
 func (s *ConfigService) GetRetentionTTL(userID string, roles []string, orgCode string) time.Duration {
 	s.mu.RLock()
 	cfg := s.current.Retention
 	s.mu.RUnlock()
 
-	// 1. Приоритет пользователя
-	if uTTLStr, ok := cfg.UserTTLs[userID]; ok {
-		if d, err := time.ParseDuration(uTTLStr); err == nil {
-			return d
+	var resultTTL time.Duration
+
+	// 1. Значение по умолчанию
+	if d, err := time.ParseDuration(cfg.DefaultTTL); err == nil {
+		resultTTL = d
+	} else {
+		resultTTL = 24 * time.Hour // Запасной дефолт
+	}
+
+	// 2. Приоритет организации
+	if orgCode != "" {
+		if oTTLStr, ok := cfg.OrgTTLs[orgCode]; ok {
+			if d, err := time.ParseDuration(oTTLStr); err == nil {
+				resultTTL = d
+			}
 		}
 	}
 
-	// 2. Приоритет ролей (выбираем максимальный из ролей пользователя)
+	// 3. Приоритет ролей (выбираем максимальный из ролей пользователя)
 	var maxRoleTTL time.Duration
 	foundRoleTTL := false
 	for _, role := range roles {
@@ -297,22 +345,61 @@ func (s *ConfigService) GetRetentionTTL(userID string, roles []string, orgCode s
 		}
 	}
 	if foundRoleTTL {
-		return maxRoleTTL
+		resultTTL = maxRoleTTL
 	}
 
-	// 3. Приоритет организации
-	if oTTLStr, ok := cfg.OrgTTLs[orgCode]; ok {
-		if d, err := time.ParseDuration(oTTLStr); err == nil {
-			return d
+	// 4. Приоритет пользователя
+	if userID != "" {
+		if uTTLStr, ok := cfg.UserTTLs[userID]; ok {
+			if d, err := time.ParseDuration(uTTLStr); err == nil {
+				resultTTL = d
+			}
 		}
 	}
 
-	// 4. Значение по умолчанию
-	d, err := time.ParseDuration(cfg.DefaultTTL)
-	if err != nil {
-		return 24 * time.Hour // Запасной дефолт
+	return resultTTL
+}
+
+func cloneAppConfig(src *AppConfig) *AppConfig {
+	if src == nil {
+		return &AppConfig{}
 	}
-	return d
+
+	dst := *src
+	dst.SVAP.Endpoints = make(map[string]SVAPEndpoint, len(src.SVAP.Endpoints))
+	for k, v := range src.SVAP.Endpoints {
+		dst.SVAP.Endpoints[k] = v
+	}
+
+	dst.Retention.RoleTTLs = cloneStringMap(src.Retention.RoleTTLs)
+	dst.Retention.OrgTTLs = cloneStringMap(src.Retention.OrgTTLs)
+	dst.Retention.UserTTLs = cloneStringMap(src.Retention.UserTTLs)
+	normalizeRetentionConfig(&dst.Retention)
+
+	return &dst
+}
+
+func cloneStringMap(src map[string]string) map[string]string {
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func normalizeRetentionConfig(cfg *RetentionConfig) {
+	if cfg.DefaultTTL == "" {
+		cfg.DefaultTTL = "24h"
+	}
+	if cfg.RoleTTLs == nil {
+		cfg.RoleTTLs = make(map[string]string)
+	}
+	if cfg.OrgTTLs == nil {
+		cfg.OrgTTLs = make(map[string]string)
+	}
+	if cfg.UserTTLs == nil {
+		cfg.UserTTLs = make(map[string]string)
+	}
 }
 
 func mapToStruct(src any, dst any) error {

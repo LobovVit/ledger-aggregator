@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // AnalyticalAttribute представляет аналитический признак (АП) из СВАП
 type AnalyticalAttribute struct {
@@ -14,31 +18,72 @@ type AnalyticalAttribute struct {
 	LastUpdated     time.Time `json:"last_updated"`
 }
 
+// SVAPTime кастомный тип времени для соответствия формату СВАП (yyyy-MM-dd HH:mm:ss)
+type SVAPTime time.Time
+
+func (t SVAPTime) MarshalJSON() ([]byte, error) {
+	formatted := fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
+	return []byte(formatted), nil
+}
+
+func (t *SVAPTime) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), "\"")
+	if s == "null" || s == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02 15:04:05", s)
+	if err != nil {
+		// Попробуем стандартный RFC3339 на всякий случай
+		parsed, err = time.Parse(time.RFC3339, s)
+		if err != nil {
+			return err
+		}
+	}
+	*t = SVAPTime(parsed)
+	return nil
+}
+
 // SVAPHeader общий заголовок запроса к СВАП
 type SVAPHeader struct {
-	Subject        string    `xml:"Subject"`        // Инициатор события учета
-	SettlementDate time.Time `xml:"SettlementDate"` // Дата отражения
-	Reprocessing   string    `xml:"Reprocessing"`   // Признак переобработки
-	Offset         int       `xml:"Offset,omitempty"`
-	Limit          int       `xml:"Limit,omitempty"`
+	Source       string   `json:"Source" xml:"Subject"`
+	ReqDateTime  SVAPTime `json:"ReqDateTime" xml:"SettlementDate"`
+	Version      string   `json:"Version"`
+	ReqGuid      string   `json:"ReqGuid"`
+	DocGuid      string   `json:"DocGuid"`
+	RequestType  string   `json:"RequestType"`
+	Reprocessing string   `json:"Reprocessing,omitempty" xml:"Reprocessing"`
+	Offset       int      `json:"Offset,omitempty" xml:"Offset,omitempty"`
+	Limit        int      `json:"Limit,omitempty" xml:"Limit,omitempty"`
 }
 
 // SavedQuery представляет сохраненный запрос пользователя
 type SavedQuery struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	System    string    `json:"system"`     // Напр. "ГК", "ЛС"
-	QueryType string    `json:"query_type"` // OPLIST, FSG, TURN, ReportGK, COR, PA, CONS
-	Params    string    `json:"params"`     // JSON-строка параметров
-	CreatedAt time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	UserID      string    `json:"user_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	Visibility  string    `json:"visibility"` // private, organization, public
+	QueryType   string    `json:"query_type"` // OPLIST, FSG, TURN, ReportGK, COR, PA, CONS
+	Params      string    `json:"params"`     // JSON-строка параметров
+	CreatedAt   time.Time `json:"created_at"`
 }
+
+const (
+	VisibilityPrivate      = "private"
+	VisibilityOrganization = "organization"
+	VisibilityPublic       = "public"
+)
 
 // QueryResult представляет метаданные результата выполнения запроса
 type QueryResult struct {
-	ID        string    `json:"id"`
-	QueryID   string    `json:"query_id"`
-	Meta      any       `json:"meta"` // Метаинформация для АИ
-	FetchedAt time.Time `json:"fetched_at"`
+	ID          string     `json:"id"`
+	QueryID     string     `json:"query_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description,omitempty"`
+	Visibility  string     `json:"visibility"`
+	Meta        any        `json:"meta"` // Метаинформация для АИ
+	FetchedAt   time.Time  `json:"fetched_at"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 }
 
 // QueryResultRow представляет одну строку данных (сущность)
