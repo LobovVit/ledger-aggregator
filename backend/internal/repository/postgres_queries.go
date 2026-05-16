@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"svap-query-service/backend/internal/model"
@@ -49,6 +50,9 @@ func (r *PostgresSavedQueryRepository) GetByID(ctx context.Context, id string) (
 	var q model.SavedQuery
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&q.ID, &q.UserID, &q.Name, &q.Description, &q.Visibility, &q.QueryType, &q.Params, &q.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.SavedQuery{}, ErrNotFound
+		}
 		return model.SavedQuery{}, err
 	}
 	return q, nil
@@ -126,8 +130,16 @@ func (r *PostgresSavedQueryRepository) Delete(ctx context.Context, id string) er
 	if _, err := tx.ExecContext(ctx, `DELETE FROM query_results WHERE query_id = $1`, id); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM saved_queries WHERE id = $1`, id); err != nil {
+	res, err := tx.ExecContext(ctx, `DELETE FROM saved_queries WHERE id = $1`, id)
+	if err != nil {
 		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
 	}
 	return tx.Commit()
 }
@@ -303,6 +315,9 @@ func (r *PostgresQueryResultRepository) GetByID(ctx context.Context, id string) 
 	var metaData []byte
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&res.ID, &res.QueryID, &res.Name, &res.Description, &res.Visibility, &metaData, &res.FetchedAt, &res.ExpiresAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.QueryResult{}, ErrNotFound
+		}
 		return model.QueryResult{}, err
 	}
 	if len(metaData) > 0 {
@@ -446,6 +461,16 @@ func (r *PostgresQueryResultRepository) GetFullResultData(ctx context.Context, r
 
 func (r *PostgresQueryResultRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM query_results WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
-	return err
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

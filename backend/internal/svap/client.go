@@ -33,11 +33,15 @@ type RealClient struct {
 
 func NewRealClient(cfg *config.ConfigService) *RealClient {
 	insecureSkipVerify, _ := strconv.ParseBool(os.Getenv("SVAP_INSECURE_SKIP_VERIFY"))
+	timeout := 30 * time.Second
+	if timeoutSeconds, err := strconv.Atoi(os.Getenv("SVAP_TIMEOUT_SECONDS")); err == nil && timeoutSeconds > 0 {
+		timeout = time.Duration(timeoutSeconds) * time.Second
+	}
 
 	return &RealClient{
 		config: cfg,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: timeout,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 			},

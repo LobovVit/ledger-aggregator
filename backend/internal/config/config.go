@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"svap-query-service/backend/internal/repository"
+	"svap-query-service/backend/internal/ports"
 )
 
 // Константы для ключей групп конфигурации
@@ -18,6 +18,11 @@ const (
 	GroupServer    = "server"
 	GroupSVAP      = "svap"
 	GroupRetention = "retention"
+)
+
+const (
+	defaultSVAPDatamartHost   = "http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081"
+	defaultSVAPDatamartSuffix = "/fah_main"
 )
 
 type RetentionConfig struct {
@@ -51,10 +56,10 @@ type ConfigService struct {
 	mu      sync.RWMutex
 	current *AppConfig
 	pending *AppConfig
-	repo    repository.ConfigRepository
+	repo    ports.ConfigRepository
 }
 
-func NewConfigService(repo repository.ConfigRepository) *ConfigService {
+func NewConfigService(repo ports.ConfigRepository) *ConfigService {
 	// Дефолтные значения из переменных окружения
 	initial := &AppConfig{
 		Server: ServerConfig{
@@ -63,20 +68,24 @@ func NewConfigService(repo repository.ConfigRepository) *ConfigService {
 		SVAP: SVAPConfig{
 			Endpoints: map[string]SVAPEndpoint{
 				"FSG": {
-					Host:   getEnv("SVAP_FSG_HOST", os.Getenv("SVAP_HOST_GK")),
-					Suffix: getEnv("SVAP_FSG_SUFFIX", "/api/query/execute"),
+					Host:   getEnv("SVAP_FSG_HOST", defaultSVAPDatamartHost),
+					Suffix: getEnv("SVAP_FSG_SUFFIX", defaultSVAPDatamartSuffix),
 				},
 				"TURN": {
-					Host:   getEnv("SVAP_TURN_HOST", os.Getenv("SVAP_HOST_GK")),
-					Suffix: getEnv("SVAP_TURN_SUFFIX", "/api/query/execute"),
+					Host:   getEnv("SVAP_TURN_HOST", defaultSVAPDatamartHost),
+					Suffix: getEnv("SVAP_TURN_SUFFIX", defaultSVAPDatamartSuffix),
+				},
+				"COR": {
+					Host:   getEnv("SVAP_COR_HOST", defaultSVAPDatamartHost),
+					Suffix: getEnv("SVAP_COR_SUFFIX", defaultSVAPDatamartSuffix),
 				},
 				"PA": {
-					Host:   getEnv("SVAP_PA_HOST", os.Getenv("SVAP_HOST_GK")),
-					Suffix: getEnv("SVAP_PA_SUFFIX", "/api/query/execute"),
+					Host:   getEnv("SVAP_PA_HOST", defaultSVAPDatamartHost),
+					Suffix: getEnv("SVAP_PA_SUFFIX", defaultSVAPDatamartSuffix),
 				},
 				"CONS": {
-					Host:   getEnv("SVAP_CONS_HOST", os.Getenv("SVAP_HOST_GK")),
-					Suffix: getEnv("SVAP_CONS_SUFFIX", "/api/query/execute"),
+					Host:   getEnv("SVAP_CONS_HOST", defaultSVAPDatamartHost),
+					Suffix: getEnv("SVAP_CONS_SUFFIX", defaultSVAPDatamartSuffix),
 				},
 			},
 		},

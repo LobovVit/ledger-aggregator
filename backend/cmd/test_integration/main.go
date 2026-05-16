@@ -21,13 +21,14 @@ import (
 
 func main() {
 	// 1. Setup DB
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s search_path=%s",
 		getEnv("DB_HOST", "localhost"),
 		getEnv("DB_PORT", "5432"),
 		getEnv("DB_USER", "postgres"),
 		getEnv("DB_PASSWORD", "postgres"),
 		getEnv("DB_NAME", "svap_query_service"),
 		getEnv("DB_SSLMODE", "disable"),
+		getEnv("DB_SCHEMA", "svap_query_service"),
 	)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -52,9 +53,10 @@ func main() {
 	attrRepo := repository.NewPostgresAnalyticalAttributeRepository(db)
 	queryRepo := repository.NewPostgresSavedQueryRepository(db)
 	resultRepo := repository.NewPostgresQueryResultRepository(db)
+	executionRepo := repository.NewPostgresQueryExecutionRepository(db)
 	dictRepo := repository.NewPostgresDictionaryCacheRepository(db)
 
-	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo, configService)
+	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo, configService, executionRepo)
 
 	ctx := context.Background()
 

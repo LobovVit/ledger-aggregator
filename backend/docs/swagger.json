@@ -9,6 +9,43 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
+        "/analytical-attributes": {
+            "get": {
+                "description": "RU: Возвращает справочник аналитических признаков, опционально с фильтром по бизнесу. EN: Returns analytical attributes, optionally filtered by business.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dictionaries"
+                ],
+                "summary": "RU: Получить аналитические признаки / EN: List analytical attributes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Код бизнеса / EN: Business code",
+                        "name": "business",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Список аналитических признаков / EN: Analytical attribute list",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.AnalyticalAttribute"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/config": {
             "get": {
                 "description": "RU: Возвращает всю подготовленную конфигурацию, включая еще не примененные изменения. EN: Returns the full pending configuration, including unapplied changes.",
@@ -128,6 +165,219 @@
                     },
                     "404": {
                         "description": "RU: Группа не найдена / EN: Group not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/dictionaries": {
+            "get": {
+                "description": "RU: Возвращает элементы справочников с фильтрами по ФП, коду справочника, строке поиска по краткому/полному наименованию и связанному аналитическому признаку. EN: Returns dictionary items filtered by business, dictionary code, short/full name search query, and linked analytical attribute.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dictionaries"
+                ],
+                "summary": "RU: Найти элементы справочников / EN: Search dictionary items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Код функциональной подсистемы / EN: Business code",
+                        "name": "business",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код справочника / EN: Dictionary code",
+                        "name": "dictionary_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Поиск по краткому или полному наименованию / EN: Search by short or full name",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код связанного аналитического признака / EN: Linked analytical attribute code",
+                        "name": "analytical_attribute_code",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Элементы справочников / EN: Dictionary items",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.DictionaryItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "RU: Сохраняет элемент справочника. Связь с analytical_attribute_code необязательная. EN: Saves a dictionary item. analytical_attribute_code link is optional.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dictionaries"
+                ],
+                "summary": "RU: Создать или обновить элемент справочника / EN: Create or update dictionary item",
+                "parameters": [
+                    {
+                        "description": "RU: Элемент справочника / EN: Dictionary item",
+                        "name": "item",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DictionaryItem"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Элемент сохранен / EN: Dictionary item saved",
+                        "schema": {
+                            "$ref": "#/definitions/model.DictionaryItem"
+                        }
+                    },
+                    "400": {
+                        "description": "RU: Некорректное тело запроса / EN: Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/dictionaries/item": {
+            "get": {
+                "description": "RU: Возвращает один элемент справочника по составному ключу. EN: Returns a single dictionary item by composite key.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dictionaries"
+                ],
+                "summary": "RU: Получить элемент справочника / EN: Get dictionary item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Код функциональной подсистемы / EN: Business code",
+                        "name": "business",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код справочника / EN: Dictionary code",
+                        "name": "dictionary_code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код элемента / EN: Item code",
+                        "name": "item_code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Элемент справочника / EN: Dictionary item",
+                        "schema": {
+                            "$ref": "#/definitions/model.DictionaryItem"
+                        }
+                    },
+                    "400": {
+                        "description": "RU: Не передан обязательный параметр / EN: Required parameter is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Элемент не найден / EN: Item not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "RU: Удаляет элемент справочника по составному ключу. EN: Deletes a dictionary item by composite key.",
+                "tags": [
+                    "dictionaries"
+                ],
+                "summary": "RU: Удалить элемент справочника / EN: Delete dictionary item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Код функциональной подсистемы / EN: Business code",
+                        "name": "business",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код справочника / EN: Dictionary code",
+                        "name": "dictionary_code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: Код элемента / EN: Item code",
+                        "name": "item_code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "RU: Удалено / EN: Deleted"
+                    },
+                    "400": {
+                        "description": "RU: Не передан обязательный параметр / EN: Required parameter is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Элемент не найден / EN: Item not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -278,6 +528,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "RU: UUID запроса / EN: Query UUID",
                         "name": "id",
                         "in": "path",
@@ -293,6 +550,18 @@
                     },
                     "400": {
                         "description": "RU: Некорректный UUID запроса / EN: Invalid query UUID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Запрос принадлежит другому пользователю / EN: Query belongs to another user",
                         "schema": {
                             "type": "string"
                         }
@@ -314,6 +583,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "RU: UUID запроса / EN: Query UUID",
                         "name": "id",
                         "in": "path",
@@ -326,6 +602,24 @@
                     },
                     "400": {
                         "description": "RU: Некорректный UUID запроса / EN: Invalid query UUID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Запрос принадлежит другому пользователю / EN: Query belongs to another user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Запрос не найден / EN: Query not found",
                         "schema": {
                             "type": "string"
                         }
@@ -352,6 +646,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "RU: UUID запроса / EN: Query UUID",
                         "name": "id",
                         "in": "path",
@@ -374,6 +675,24 @@
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Запрос принадлежит другому пользователю / EN: Query belongs to another user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Запрос не найден / EN: Query not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
                         "schema": {
@@ -385,7 +704,7 @@
         },
         "/query/execute": {
             "post": {
-                "description": "RU: Выполняет запрос к СВАП по сохраненному шаблону, сохраняет результат и возвращает его метаданные. EN: Executes a saved query template against SVAP, stores the result, and returns its metadata.",
+                "description": "RU: Запускает запрос к СВАП по сохраненному шаблону. По умолчанию async=true: возвращает задачу со статусом queued, результат появится после завершения в /results. При async=false дожидается выполнения и возвращает результат. EN: Starts a saved query template execution. By default async=true: returns a queued execution job, and the result appears later in /results. With async=false waits for completion and returns the result.",
                 "consumes": [
                     "application/json"
                 ],
@@ -395,8 +714,15 @@
                 "tags": [
                     "queries"
                 ],
-                "summary": "RU: Выполнить сохраненный запрос / EN: Execute a saved query",
+                "summary": "RU: Запустить выполнение сохраненного запроса / EN: Start saved query execution",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "description": "RU: Параметры выполнения / EN: Execution parameters",
                         "name": "request",
@@ -409,13 +735,147 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "RU: Метаданные сохраненного результата / EN: Stored result metadata",
+                        "description": "RU: Выполнение завершено синхронно / EN: Execution completed synchronously",
                         "schema": {
-                            "$ref": "#/definitions/model.QueryResult"
+                            "$ref": "#/definitions/api.ExecuteQuerySyncResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "RU: Выполнение принято / EN: Execution accepted",
+                        "schema": {
+                            "$ref": "#/definitions/api.ExecuteQueryAcceptedResponse"
                         }
                     },
                     "400": {
                         "description": "RU: Некорректное тело запроса / EN: Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Запрос принадлежит другому пользователю / EN: Query belongs to another user",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Запрос не найден / EN: Query not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/query/executions": {
+            "get": {
+                "description": "RU: Возвращает статусы запусков запросов пользователя из заголовка X-User-ID. EN: Returns query execution statuses for the user from the X-User-ID header.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "queries"
+                ],
+                "summary": "RU: Получить задачи выполнения пользователя / EN: List user query executions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Список задач выполнения / EN: Query execution list",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.QueryExecution"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/query/executions/{id}": {
+            "get": {
+                "description": "RU: Возвращает статус конкретного запуска запроса. EN: Returns the status of a specific query execution.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "queries"
+                ],
+                "summary": "RU: Получить статус задачи выполнения / EN: Get query execution status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RU: UUID задачи выполнения / EN: Execution UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RU: Задача выполнения / EN: Query execution",
+                        "schema": {
+                            "$ref": "#/definitions/model.QueryExecution"
+                        }
+                    },
+                    "400": {
+                        "description": "RU: Некорректный UUID задачи / EN: Invalid execution UUID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Задача принадлежит другому пользователю / EN: Execution belongs to another user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Задача не найдена / EN: Execution not found",
                         "schema": {
                             "type": "string"
                         }
@@ -483,6 +943,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "RU: UUID результата / EN: Result UUID",
                         "name": "id",
                         "in": "path",
@@ -495,6 +962,24 @@
                     },
                     "400": {
                         "description": "RU: Некорректный UUID результата / EN: Invalid result UUID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Результат принадлежит другому пользователю / EN: Result belongs to another user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Результат не найден / EN: Result not found",
                         "schema": {
                             "type": "string"
                         }
@@ -519,6 +1004,13 @@
                 ],
                 "summary": "RU: Получить данные результата / EN: Get query result data",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RU: Идентификатор пользователя / EN: User identifier",
+                        "name": "X-User-ID",
+                        "in": "header",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "RU: UUID результата / EN: Result UUID",
@@ -556,6 +1048,24 @@
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "RU: Не передан X-User-ID / EN: X-User-ID is missing",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "RU: Результат принадлежит другому пользователю / EN: Result belongs to another user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "RU: Результат не найден / EN: Result not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "RU: Внутренняя ошибка сервера / EN: Internal server error",
                         "schema": {
@@ -567,9 +1077,41 @@
         }
     },
     "definitions": {
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "saved query with id ... was not found"
+                }
+            }
+        },
+        "api.ExecuteQueryAcceptedResponse": {
+            "type": "object",
+            "properties": {
+                "execution": {
+                    "$ref": "#/definitions/model.QueryExecution"
+                },
+                "execution_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "query_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "api.ExecuteQueryRequest": {
             "type": "object",
             "properties": {
+                "async": {
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -601,6 +1143,23 @@
                     "type": "string"
                 },
                 "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ExecuteQuerySyncResponse": {
+            "type": "object",
+            "properties": {
+                "execution": {
+                    "$ref": "#/definitions/model.QueryExecution"
+                },
+                "query_id": {
+                    "type": "string"
+                },
+                "result": {
+                    "$ref": "#/definitions/model.QueryResult"
+                },
+                "status": {
                     "type": "string"
                 }
             }
@@ -676,6 +1235,118 @@
             "type": "object",
             "properties": {
                 "port": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.AnalyticalAttribute": {
+            "type": "object",
+            "properties": {
+                "businesses": {
+                    "description": "Перечень СВАПОВ (бизнесов), напр. [\"ФБ\", \"ПУД\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "code": {
+                    "description": "Код ан признака СВАП (напр. BUD_CODE)",
+                    "type": "string"
+                },
+                "in_account": {
+                    "description": "Тип признака (в составе счета / не в составе)",
+                    "type": "boolean"
+                },
+                "last_updated": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Наименование ан признака",
+                    "type": "string"
+                },
+                "use_in_balance": {
+                    "description": "Признак участия в расчете балансов",
+                    "type": "boolean"
+                },
+                "validation_type": {
+                    "description": "Тип валидации (Service/RegExpression/List)",
+                    "type": "string"
+                },
+                "validation_value": {
+                    "description": "Значение для валидации (адрес сервиса/регэксп/JSON списка)",
+                    "type": "string"
+                }
+            }
+        },
+        "model.DictionaryItem": {
+            "type": "object",
+            "properties": {
+                "analytical_attribute_code": {
+                    "type": "string"
+                },
+                "business": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "dictionary_code": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "last_updated": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.QueryExecution": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "end_rep_date": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "query_id": {
+                    "type": "string"
+                },
+                "result_id": {
+                    "type": "string"
+                },
+                "start_rep_date": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }

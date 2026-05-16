@@ -1,4 +1,5 @@
 -- Итоговая схема базы данных для чистой установки SVAP Query Service.
+-- Целевая схема создается migration runner'ом и задается через DB_SCHEMA.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -17,19 +18,48 @@ CREATE TABLE IF NOT EXISTS analytical_attributes (
 COMMENT ON TABLE analytical_attributes IS 'Справочник аналитических признаков из СВАП';
 COMMENT ON COLUMN analytical_attributes.validation_type IS 'Тип валидации: Service, RegExpression, List';
 
+INSERT INTO analytical_attributes (code, name, businesses, in_account, use_in_balance, validation_type, validation_value)
+VALUES
+    ('budgetCode', 'Бюджет', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9]{7,8}$'),
+    ('kbk', 'КБК', ARRAY['FB', 'ФБ'], TRUE, TRUE, 'RegExpression', '^[0-9%]{1,20}$'),
+    ('account', 'Бух счет', ARRAY['FB', 'ФБ'], TRUE, TRUE, 'RegExpression', '^[0-9]{5}$'),
+    ('pa', 'Лицевой счет', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9]{1,20}$'),
+    ('ls', 'ЛС', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9]{1,20}$'),
+    ('faip', 'ФАИП', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9]{1,20}$'),
+    ('targetCode', 'Код цели', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9%]{1,20}$'),
+    ('currencyCode', 'Код валюты', ARRAY['FB', 'ФБ'], FALSE, TRUE, 'RegExpression', '^[0-9]{3}$'),
+    ('tofk', 'ТОФК', ARRAY['FB', 'ФБ'], FALSE, FALSE, 'RegExpression', '^[0-9]{4}$'),
+    ('contourCode', 'Код контура', ARRAY['FB', 'ФБ'], FALSE, FALSE, NULL, NULL),
+    ('documentId', 'Номер БО', ARRAY['FB', 'ФБ'], FALSE, FALSE, NULL, NULL),
+    ('oktmo', 'ОКТМО', ARRAY['FB', 'ФБ'], FALSE, FALSE, 'RegExpression', '^[0-9]{1,11}$'),
+    ('subdep', 'Подвед', ARRAY['FB', 'ФБ'], FALSE, FALSE, NULL, NULL),
+    ('secret', 'Признак секретности', ARRAY['FB', 'ФБ'], FALSE, FALSE, NULL, NULL)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    businesses = EXCLUDED.businesses,
+    in_account = EXCLUDED.in_account,
+    use_in_balance = EXCLUDED.use_in_balance,
+    validation_type = EXCLUDED.validation_type,
+    validation_value = EXCLUDED.validation_value,
+    last_updated = CURRENT_TIMESTAMP;
+
 -- 2. Кэш справочников функциональных подсистем
 CREATE TABLE IF NOT EXISTS dictionaries_cache (
     id SERIAL PRIMARY KEY,
     business VARCHAR(10) NOT NULL,
     dictionary_code VARCHAR(50) NOT NULL,
     item_code VARCHAR(100) NOT NULL,
-    item_name TEXT NOT NULL,
+    item_short_name TEXT NOT NULL,
+    item_full_name TEXT NOT NULL,
+    analytical_attribute_code VARCHAR(50) REFERENCES analytical_attributes(code) ON DELETE SET NULL,
     last_updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(business, dictionary_code, item_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_dict_search
     ON dictionaries_cache(business, dictionary_code, item_code);
+CREATE INDEX IF NOT EXISTS idx_dict_attribute
+    ON dictionaries_cache(analytical_attribute_code);
 
 -- 3. Сохраненные запросы пользователей
 CREATE TABLE IF NOT EXISTS saved_queries (
@@ -76,7 +106,36 @@ CREATE INDEX IF NOT EXISTS idx_results_query
 CREATE INDEX IF NOT EXISTS idx_results_expires_at
     ON query_results(expires_at);
 
--- 5. Строки результатов выполнения запросов (сущности)
+-- 5. Задачи выполнения запросов
+CREATE TABLE IF NOT EXISTS query_executions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query_id UUID NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
+    user_id VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'queued',
+    mode VARCHAR(20) NOT NULL DEFAULT 'async',
+    start_rep_date VARCHAR(10),
+    end_rep_date VARCHAR(10),
+    offset_rows INTEGER NOT NULL DEFAULT 0,
+    limit_rows INTEGER NOT NULL DEFAULT 0,
+    result_id UUID REFERENCES query_results(id) ON DELETE SET NULL,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP WITH TIME ZONE,
+    finished_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT query_executions_status_check
+        CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
+    CONSTRAINT query_executions_mode_check
+        CHECK (mode IN ('sync', 'async'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_query_executions_user
+    ON query_executions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_query_executions_query
+    ON query_executions(query_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_query_executions_status
+    ON query_executions(status);
+
+-- 6. Строки результатов выполнения запросов (сущности)
 CREATE TABLE IF NOT EXISTS query_result_rows (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     result_id UUID NOT NULL REFERENCES query_results(id) ON DELETE CASCADE,
@@ -86,7 +145,7 @@ CREATE TABLE IF NOT EXISTS query_result_rows (
 CREATE INDEX IF NOT EXISTS idx_rows_result
     ON query_result_rows(result_id);
 
--- 6. Значения измерений и показателей для строк
+-- 7. Значения измерений и показателей для строк
 CREATE TABLE IF NOT EXISTS query_row_values (
     id SERIAL PRIMARY KEY,
     row_id UUID NOT NULL REFERENCES query_result_rows(id) ON DELETE CASCADE,
@@ -105,7 +164,7 @@ CREATE INDEX IF NOT EXISTS idx_values_row
 CREATE INDEX IF NOT EXISTS idx_values_attr
     ON query_row_values(attribute_code);
 
--- 7. Динамическая конфигурация приложения
+-- 8. Динамическая конфигурация приложения
 CREATE TABLE IF NOT EXISTS app_config (
     group_name VARCHAR(50) PRIMARY KEY,
     value JSONB NOT NULL,

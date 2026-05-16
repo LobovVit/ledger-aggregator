@@ -1,7 +1,28 @@
 basePath: /api/v1
 definitions:
+  api.ErrorResponse:
+    properties:
+      message:
+        example: saved query with id ... was not found
+        type: string
+    type: object
+  api.ExecuteQueryAcceptedResponse:
+    properties:
+      execution:
+        $ref: '#/definitions/model.QueryExecution'
+      execution_id:
+        type: string
+      message:
+        type: string
+      query_id:
+        type: string
+      status:
+        type: string
+    type: object
   api.ExecuteQueryRequest:
     properties:
+      async:
+        type: boolean
       description:
         type: string
       end_rep_date:
@@ -23,6 +44,17 @@ definitions:
       start_rep_date:
         type: string
       visibility:
+        type: string
+    type: object
+  api.ExecuteQuerySyncResponse:
+    properties:
+      execution:
+        $ref: '#/definitions/model.QueryExecution'
+      query_id:
+        type: string
+      result:
+        $ref: '#/definitions/model.QueryResult'
+      status:
         type: string
     type: object
   config.AppConfig:
@@ -73,6 +105,82 @@ definitions:
   config.ServerConfig:
     properties:
       port:
+        type: string
+    type: object
+  model.AnalyticalAttribute:
+    properties:
+      businesses:
+        description: Перечень СВАПОВ (бизнесов), напр. ["ФБ", "ПУД"]
+        items:
+          type: string
+        type: array
+      code:
+        description: Код ан признака СВАП (напр. BUD_CODE)
+        type: string
+      in_account:
+        description: Тип признака (в составе счета / не в составе)
+        type: boolean
+      last_updated:
+        type: string
+      name:
+        description: Наименование ан признака
+        type: string
+      use_in_balance:
+        description: Признак участия в расчете балансов
+        type: boolean
+      validation_type:
+        description: Тип валидации (Service/RegExpression/List)
+        type: string
+      validation_value:
+        description: Значение для валидации (адрес сервиса/регэксп/JSON списка)
+        type: string
+    type: object
+  model.DictionaryItem:
+    properties:
+      analytical_attribute_code:
+        type: string
+      business:
+        type: string
+      code:
+        type: string
+      dictionary_code:
+        type: string
+      full_name:
+        type: string
+      last_updated:
+        type: string
+      short_name:
+        type: string
+    type: object
+  model.QueryExecution:
+    properties:
+      created_at:
+        type: string
+      end_rep_date:
+        type: string
+      error_message:
+        type: string
+      finished_at:
+        type: string
+      id:
+        type: string
+      limit:
+        type: integer
+      mode:
+        type: string
+      offset:
+        type: integer
+      query_id:
+        type: string
+      result_id:
+        type: string
+      start_rep_date:
+        type: string
+      started_at:
+        type: string
+      status:
+        type: string
+      user_id:
         type: string
     type: object
   model.QueryResult:
@@ -126,6 +234,33 @@ info:
   title: API SVAP Query Service / API агрегатора витрин
   version: "1.0"
 paths:
+  /analytical-attributes:
+    get:
+      description: 'RU: Возвращает справочник аналитических признаков, опционально
+        с фильтром по бизнесу. EN: Returns analytical attributes, optionally filtered
+        by business.'
+      parameters:
+      - description: 'RU: Код бизнеса / EN: Business code'
+        in: query
+        name: business
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Список аналитических признаков / EN: Analytical attribute
+            list'
+          schema:
+            items:
+              $ref: '#/definitions/model.AnalyticalAttribute'
+            type: array
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить аналитические признаки / EN: List analytical attributes'
+      tags:
+      - dictionaries
   /config:
     get:
       description: 'RU: Возвращает всю подготовленную конфигурацию, включая еще не
@@ -220,6 +355,160 @@ paths:
       summary: 'RU: Получить группу конфигурации / EN: Get a configuration group'
       tags:
       - config
+  /dictionaries:
+    get:
+      description: 'RU: Возвращает элементы справочников с фильтрами по ФП, коду справочника,
+        строке поиска по краткому/полному наименованию и связанному аналитическому
+        признаку. EN: Returns dictionary items filtered by business, dictionary code,
+        short/full name search query, and linked analytical attribute.'
+      parameters:
+      - description: 'RU: Код функциональной подсистемы / EN: Business code'
+        in: query
+        name: business
+        type: string
+      - description: 'RU: Код справочника / EN: Dictionary code'
+        in: query
+        name: dictionary_code
+        type: string
+      - description: 'RU: Поиск по краткому или полному наименованию / EN: Search
+          by short or full name'
+        in: query
+        name: q
+        type: string
+      - description: 'RU: Код связанного аналитического признака / EN: Linked analytical
+          attribute code'
+        in: query
+        name: analytical_attribute_code
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Элементы справочников / EN: Dictionary items'
+          schema:
+            items:
+              $ref: '#/definitions/model.DictionaryItem'
+            type: array
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Найти элементы справочников / EN: Search dictionary items'
+      tags:
+      - dictionaries
+    post:
+      consumes:
+      - application/json
+      description: 'RU: Сохраняет элемент справочника. Связь с analytical_attribute_code
+        необязательная. EN: Saves a dictionary item. analytical_attribute_code link
+        is optional.'
+      parameters:
+      - description: 'RU: Элемент справочника / EN: Dictionary item'
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/model.DictionaryItem'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Элемент сохранен / EN: Dictionary item saved'
+          schema:
+            $ref: '#/definitions/model.DictionaryItem'
+        "400":
+          description: 'RU: Некорректное тело запроса / EN: Invalid request body'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Создать или обновить элемент справочника / EN: Create or update
+        dictionary item'
+      tags:
+      - dictionaries
+  /dictionaries/item:
+    delete:
+      description: 'RU: Удаляет элемент справочника по составному ключу. EN: Deletes
+        a dictionary item by composite key.'
+      parameters:
+      - description: 'RU: Код функциональной подсистемы / EN: Business code'
+        in: query
+        name: business
+        required: true
+        type: string
+      - description: 'RU: Код справочника / EN: Dictionary code'
+        in: query
+        name: dictionary_code
+        required: true
+        type: string
+      - description: 'RU: Код элемента / EN: Item code'
+        in: query
+        name: item_code
+        required: true
+        type: string
+      responses:
+        "204":
+          description: 'RU: Удалено / EN: Deleted'
+        "400":
+          description: 'RU: Не передан обязательный параметр / EN: Required parameter
+            is missing'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Элемент не найден / EN: Item not found'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Удалить элемент справочника / EN: Delete dictionary item'
+      tags:
+      - dictionaries
+    get:
+      description: 'RU: Возвращает один элемент справочника по составному ключу. EN:
+        Returns a single dictionary item by composite key.'
+      parameters:
+      - description: 'RU: Код функциональной подсистемы / EN: Business code'
+        in: query
+        name: business
+        required: true
+        type: string
+      - description: 'RU: Код справочника / EN: Dictionary code'
+        in: query
+        name: dictionary_code
+        required: true
+        type: string
+      - description: 'RU: Код элемента / EN: Item code'
+        in: query
+        name: item_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Элемент справочника / EN: Dictionary item'
+          schema:
+            $ref: '#/definitions/model.DictionaryItem'
+        "400":
+          description: 'RU: Не передан обязательный параметр / EN: Required parameter
+            is missing'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Элемент не найден / EN: Item not found'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить элемент справочника / EN: Get dictionary item'
+      tags:
+      - dictionaries
   /info:
     get:
       description: 'RU: Возвращает имя приложения, версию, Git-метаданные и текущее
@@ -318,6 +607,11 @@ paths:
       description: 'RU: Удаляет сохраненный запрос и все связанные с ним результаты.
         EN: Deletes a saved query and all related query results.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: UUID запроса / EN: Query UUID'
         in: path
         name: id
@@ -331,6 +625,19 @@ paths:
           description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
           schema:
             type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Запрос принадлежит другому пользователю / EN: Query belongs
+            to another user'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Запрос не найден / EN: Query not found'
+          schema:
+            type: string
         "500":
           description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
           schema:
@@ -342,6 +649,11 @@ paths:
       description: 'RU: Возвращает параметры конкретного сохраненного запроса по UUID.
         EN: Returns details of a saved query by UUID.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: UUID запроса / EN: Query UUID'
         in: path
         name: id
@@ -358,6 +670,15 @@ paths:
           description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
           schema:
             type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Запрос принадлежит другому пользователю / EN: Query belongs
+            to another user'
+          schema:
+            type: string
         "404":
           description: 'RU: Запрос не найден / EN: Query not found'
           schema:
@@ -370,6 +691,11 @@ paths:
       description: 'RU: Возвращает историю выполнений для указанного сохраненного
         запроса. EN: Returns execution history for the specified saved query.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: UUID запроса / EN: Query UUID'
         in: path
         name: id
@@ -388,6 +714,19 @@ paths:
           description: 'RU: Некорректный UUID запроса / EN: Invalid query UUID'
           schema:
             type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Запрос принадлежит другому пользователю / EN: Query belongs
+            to another user'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Запрос не найден / EN: Query not found'
+          schema:
+            type: string
         "500":
           description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
           schema:
@@ -399,10 +738,18 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'RU: Выполняет запрос к СВАП по сохраненному шаблону, сохраняет
-        результат и возвращает его метаданные. EN: Executes a saved query template
-        against SVAP, stores the result, and returns its metadata.'
+      description: 'RU: Запускает запрос к СВАП по сохраненному шаблону. По умолчанию
+        async=true: возвращает задачу со статусом queued, результат появится после
+        завершения в /results. При async=false дожидается выполнения и возвращает
+        результат. EN: Starts a saved query template execution. By default async=true:
+        returns a queued execution job, and the result appears later in /results.
+        With async=false waits for completion and returns the result.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: Параметры выполнения / EN: Execution parameters'
         in: body
         name: request
@@ -413,19 +760,115 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'RU: Метаданные сохраненного результата / EN: Stored result
-            metadata'
+          description: 'RU: Выполнение завершено синхронно / EN: Execution completed
+            synchronously'
           schema:
-            $ref: '#/definitions/model.QueryResult'
+            $ref: '#/definitions/api.ExecuteQuerySyncResponse'
+        "202":
+          description: 'RU: Выполнение принято / EN: Execution accepted'
+          schema:
+            $ref: '#/definitions/api.ExecuteQueryAcceptedResponse'
         "400":
           description: 'RU: Некорректное тело запроса / EN: Invalid request body'
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: 'RU: Запрос принадлежит другому пользователю / EN: Query belongs
+            to another user'
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: 'RU: Запрос не найден / EN: Query not found'
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: 'RU: Запустить выполнение сохраненного запроса / EN: Start saved query
+        execution'
+      tags:
+      - queries
+  /query/executions:
+    get:
+      description: 'RU: Возвращает статусы запусков запросов пользователя из заголовка
+        X-User-ID. EN: Returns query execution statuses for the user from the X-User-ID
+        header.'
+      parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Список задач выполнения / EN: Query execution list'
+          schema:
+            items:
+              $ref: '#/definitions/model.QueryExecution'
+            type: array
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
           schema:
             type: string
         "500":
           description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
           schema:
             type: string
-      summary: 'RU: Выполнить сохраненный запрос / EN: Execute a saved query'
+      summary: 'RU: Получить задачи выполнения пользователя / EN: List user query
+        executions'
+      tags:
+      - queries
+  /query/executions/{id}:
+    get:
+      description: 'RU: Возвращает статус конкретного запуска запроса. EN: Returns
+        the status of a specific query execution.'
+      parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      - description: 'RU: UUID задачи выполнения / EN: Execution UUID'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'RU: Задача выполнения / EN: Query execution'
+          schema:
+            $ref: '#/definitions/model.QueryExecution'
+        "400":
+          description: 'RU: Некорректный UUID задачи / EN: Invalid execution UUID'
+          schema:
+            type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Задача принадлежит другому пользователю / EN: Execution
+            belongs to another user'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Задача не найдена / EN: Execution not found'
+          schema:
+            type: string
+        "500":
+          description: 'RU: Внутренняя ошибка сервера / EN: Internal server error'
+          schema:
+            type: string
+      summary: 'RU: Получить статус задачи выполнения / EN: Get query execution status'
       tags:
       - queries
   /results:
@@ -465,6 +908,11 @@ paths:
         строки данных. EN: Deletes a specific query execution result and its stored
         data rows.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: UUID результата / EN: Result UUID'
         in: path
         name: id
@@ -476,6 +924,19 @@ paths:
             body'
         "400":
           description: 'RU: Некорректный UUID результата / EN: Invalid result UUID'
+          schema:
+            type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Результат принадлежит другому пользователю / EN: Result
+            belongs to another user'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Результат не найден / EN: Result not found'
           schema:
             type: string
         "500":
@@ -491,6 +952,11 @@ paths:
         с поддержкой пагинации. EN: Returns rows and values for a specific execution
         result with pagination support.'
       parameters:
+      - description: 'RU: Идентификатор пользователя / EN: User identifier'
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
       - description: 'RU: UUID результата / EN: Result UUID'
         in: path
         name: id
@@ -518,6 +984,19 @@ paths:
         "400":
           description: 'RU: Некорректный UUID, limit или offset / EN: Invalid UUID,
             limit, or offset'
+          schema:
+            type: string
+        "401":
+          description: 'RU: Не передан X-User-ID / EN: X-User-ID is missing'
+          schema:
+            type: string
+        "403":
+          description: 'RU: Результат принадлежит другому пользователю / EN: Result
+            belongs to another user'
+          schema:
+            type: string
+        "404":
+          description: 'RU: Результат не найден / EN: Result not found'
           schema:
             type: string
         "500":

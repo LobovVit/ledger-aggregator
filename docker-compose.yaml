@@ -29,18 +29,31 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=svap_query_service
-      - SVAP_FSG_HOST=${SVAP_FSG_HOST:-http://svap-gk:8080}
-      - SVAP_FSG_SUFFIX=${SVAP_FSG_SUFFIX:-/api/query/execute}
-      - SVAP_TURN_HOST=${SVAP_TURN_HOST:-http://svap-gk:8080}
-      - SVAP_TURN_SUFFIX=${SVAP_TURN_SUFFIX:-/api/query/execute}
-      - SVAP_PA_HOST=${SVAP_PA_HOST:-http://svap-gk:8080}
-      - SVAP_PA_SUFFIX=${SVAP_PA_SUFFIX:-/api/query/execute}
-      - SVAP_CONS_HOST=${SVAP_CONS_HOST:-http://svap-gk:8080}
-      - SVAP_CONS_SUFFIX=${SVAP_CONS_SUFFIX:-/api/query/execute}
+      - DB_SCHEMA=svap_query_service
+      - SVAP_FSG_HOST=${SVAP_FSG_HOST:-http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081}
+      - SVAP_FSG_SUFFIX=${SVAP_FSG_SUFFIX:-/fah_main}
+      - SVAP_TURN_HOST=${SVAP_TURN_HOST:-http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081}
+      - SVAP_TURN_SUFFIX=${SVAP_TURN_SUFFIX:-/fah_main}
+      - SVAP_COR_HOST=${SVAP_COR_HOST:-http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081}
+      - SVAP_COR_SUFFIX=${SVAP_COR_SUFFIX:-/fah_main}
+      - SVAP_PA_HOST=${SVAP_PA_HOST:-http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081}
+      - SVAP_PA_SUFFIX=${SVAP_PA_SUFFIX:-/fah_main}
+      - SVAP_CONS_HOST=${SVAP_CONS_HOST:-http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081}
+      - SVAP_CONS_SUFFIX=${SVAP_CONS_SUFFIX:-/fah_main}
       - SVAP_INSECURE_SKIP_VERIFY=${SVAP_INSECURE_SKIP_VERIFY:-false}
+      - SVAP_TIMEOUT_SECONDS=${SVAP_TIMEOUT_SECONDS:-180}
     depends_on:
       postgres:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

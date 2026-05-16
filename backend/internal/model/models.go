@@ -86,6 +86,34 @@ type QueryResult struct {
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 }
 
+const (
+	QueryExecutionModeSync  = "sync"
+	QueryExecutionModeAsync = "async"
+
+	QueryExecutionStatusQueued    = "queued"
+	QueryExecutionStatusRunning   = "running"
+	QueryExecutionStatusSucceeded = "succeeded"
+	QueryExecutionStatusFailed    = "failed"
+)
+
+// QueryExecution отражает статус задачи выполнения сохраненного запроса.
+type QueryExecution struct {
+	ID           string     `json:"id"`
+	QueryID      string     `json:"query_id"`
+	UserID       string     `json:"user_id"`
+	Status       string     `json:"status"`
+	Mode         string     `json:"mode"`
+	StartRepDate string     `json:"start_rep_date,omitempty"`
+	EndRepDate   string     `json:"end_rep_date,omitempty"`
+	Offset       int        `json:"offset"`
+	Limit        int        `json:"limit"`
+	ResultID     string     `json:"result_id,omitempty"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	FinishedAt   *time.Time `json:"finished_at,omitempty"`
+}
+
 // QueryResultRow представляет одну строку данных (сущность)
 type QueryResultRow struct {
 	ID        string    `json:"id"`
@@ -104,6 +132,18 @@ type QueryResultValue struct {
 
 // DictionaryItem элемент справочника из ФП
 type DictionaryItem struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Business                string    `json:"business"`
+	DictionaryCode          string    `json:"dictionary_code"`
+	Code                    string    `json:"code"`
+	ShortName               string    `json:"short_name"`
+	FullName                string    `json:"full_name"`
+	AnalyticalAttributeCode string    `json:"analytical_attribute_code,omitempty"`
+	LastUpdated             time.Time `json:"last_updated"`
+}
+
+type DictionaryFilter struct {
+	Business                string
+	DictionaryCode          string
+	Query                   string
+	AnalyticalAttributeCode string
 }

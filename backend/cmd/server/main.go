@@ -32,13 +32,15 @@ import (
 
 func main() {
 	// 0. Подключение к БД
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+	dbSchema := getEnv("DB_SCHEMA", "svap_query_service")
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s search_path=%s",
 		getEnv("DB_HOST", "localhost"),
 		getEnv("DB_PORT", "5432"),
 		getEnv("DB_USER", "postgres"),
 		getEnv("DB_PASSWORD", "postgres"),
 		getEnv("DB_NAME", "svap_query_service"),
 		getEnv("DB_SSLMODE", "disable"),
+		dbSchema,
 	)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -51,7 +53,7 @@ func main() {
 	}
 
 	// 0.1 Выполнение миграций
-	migrationRunner := repository.NewMigrationRunner(db)
+	migrationRunner := repository.NewMigrationRunner(db, dbSchema)
 	migrationsDir := getEnv("MIGRATIONS_DIR", "db/migrations")
 	if err := migrationRunner.Run(context.Background(), migrationsDir); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
@@ -68,9 +70,10 @@ func main() {
 	attrRepo := repository.NewPostgresAnalyticalAttributeRepository(db)
 	queryRepo := repository.NewPostgresSavedQueryRepository(db)
 	resultRepo := repository.NewPostgresQueryResultRepository(db)
+	executionRepo := repository.NewPostgresQueryExecutionRepository(db)
 	dictRepo := repository.NewPostgresDictionaryCacheRepository(db)
 
-	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo, configService)
+	aggregator := service.NewAggregatorService(svapClient, attrRepo, queryRepo, resultRepo, dictRepo, configService, executionRepo)
 
 	// 3. Запуск фоновых задач
 	ctx, cancel := context.WithCancel(context.Background())
@@ -112,6 +115,11 @@ func main() {
 
 type mockConfigRepo struct{}
 
+const (
+	mockSVAPDatamartHost   = "http://fk-eb-svap-dev-fb-svip-datamart.otr.ru:8081"
+	mockSVAPDatamartSuffix = "/fah_main"
+)
+
 func (m *mockConfigRepo) Save(ctx context.Context, groupName string, cfg any) error { return nil }
 func (m *mockConfigRepo) Load(ctx context.Context, groupName string) (any, error) {
 	switch groupName {
@@ -120,7 +128,11 @@ func (m *mockConfigRepo) Load(ctx context.Context, groupName string) (any, error
 	case config.GroupSVAP:
 		return config.SVAPConfig{
 			Endpoints: map[string]config.SVAPEndpoint{
-				"FSG": {Host: "http://svap-gk", Suffix: "/api/query/execute"},
+				"FSG":  {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"TURN": {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"COR":  {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"PA":   {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"CONS": {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
 			},
 		}, nil
 	case config.GroupRetention:
@@ -138,7 +150,11 @@ func (m *mockConfigRepo) LoadAll(ctx context.Context) (map[string]any, error) {
 		config.GroupServer: config.ServerConfig{Port: "8080"},
 		config.GroupSVAP: config.SVAPConfig{
 			Endpoints: map[string]config.SVAPEndpoint{
-				"FSG": {Host: "http://svap-gk", Suffix: "/api/query/execute"},
+				"FSG":  {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"TURN": {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"COR":  {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"PA":   {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
+				"CONS": {Host: mockSVAPDatamartHost, Suffix: mockSVAPDatamartSuffix},
 			},
 		},
 		config.GroupRetention: config.RetentionConfig{
