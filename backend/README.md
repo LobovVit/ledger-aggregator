@@ -19,6 +19,8 @@ Backend SVAP Query Service - Go-приложение с REST API для сохр
 
 Сервисный слой зависит от портов, а не от PostgreSQL или конкретного SVAP transport adapter.
 
+OpenAPI-контракт для других модулей публикуется в `../contracts/openapi`. Файлы в `backend/docs` остаются источником генерации и используются Swagger UI.
+
 ## База данных
 
 Основные таблицы:
@@ -178,6 +180,9 @@ docker run --rm -v "$PWD:/app" -w /app/backend golang:1.25-alpine go test ./...
 ```bash
 docker run --rm -v "$PWD:/app" -w /app/backend golang:1.25-alpine \
   go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/server/main.go -o docs
+
+cp backend/docs/swagger.yaml contracts/openapi/swagger.yaml
+cp backend/docs/swagger.json contracts/openapi/swagger.json
 ```
 
 Сборка:

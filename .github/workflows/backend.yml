@@ -2,9 +2,17 @@ name: backend
 
 on:
   pull_request:
+    paths:
+      - "backend/**"
+      - "contracts/openapi/**"
+      - ".github/workflows/backend.yml"
   push:
     branches:
       - main
+    paths:
+      - "backend/**"
+      - "contracts/openapi/**"
+      - ".github/workflows/backend.yml"
 
 jobs:
   test:

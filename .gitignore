@@ -16,3 +16,6 @@ frontend/dist/
 
 # Generated local data
 postgres_data/
+
+# Local incoming source documents
+documents/incoming/svap_doc_original/
